@@ -9,7 +9,7 @@ from twilio.rest import Client
 
 # ================== Twilio Configuration ===================
 account_sid = st.secrets["TWILIO_SID"]
-auth_token = st.secrets["TWILIO_AUTH_TOKEN"] # 🚨 Please reset your token and use the new one here
+auth_token = st.secrets["TWILIO_AUTH_TOKEN"]
 twilio_whatsapp_number = 'whatsapp:+14155238886'
 your_whatsapp_number = 'whatsapp:+94714900557'
 
@@ -60,6 +60,8 @@ def find_support_resistance(df, window=10):
     return supports, resistances
 
 def detect_bos(df):
+    if len(df) < 6:
+        return "Not enough data for BOS"
     recent_high = df['High'].iloc[-2]
     previous_high = df['High'].iloc[-5]
     if df['Close'].iloc[-1] > recent_high > previous_high:
@@ -70,6 +72,8 @@ def detect_bos(df):
         return "No BOS"
 
 def detect_liquidity_sweep(df, supports, resistances):
+    if len(df) < 2:
+        return "No Sweep"
     sweep_detected = None
     current_low = df['Low'].iloc[-1]
     current_high = df['High'].iloc[-1]
@@ -85,6 +89,10 @@ def detect_liquidity_sweep(df, supports, resistances):
 
 # Fetch data
 df = get_binance_ohlcv(symbol, interval, limit)
+
+if df.empty:
+    st.error("Error fetching data from Binance.")
+    st.stop()
 
 # Add Indicators
 df['SMA20'] = ta.trend.sma_indicator(df['Close'], window=20)
@@ -150,7 +158,9 @@ st.plotly_chart(fig_macd, use_container_width=True)
 
 # ================== Signal Logic ===================
 st.subheader("📌 Final Multi-Indicator + SMC Signal")
+
 latest = df.iloc[-1]
+volume_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
 
 is_uptrend = latest['Close'] > latest['SMA20'] and latest['Close'] > latest['EMA20']
 is_downtrend = latest['Close'] < latest['SMA20'] and latest['Close'] < latest['EMA20']
@@ -164,7 +174,6 @@ macd_sell = latest['MACD'] < 0
 bollinger_buy = latest['Close'] <= latest['LowerBand'] * 1.005
 bollinger_sell = latest['Close'] >= latest['UpperBand'] * 0.995
 
-volume_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
 high_volume = latest['Volume'] > volume_avg
 
 signal_sent = False
