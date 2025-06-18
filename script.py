@@ -8,8 +8,8 @@ from streamlit_autorefresh import st_autorefresh
 from twilio.rest import Client
 
 # ================== Twilio Configuration ===================
-account_sid = 'AC20df6982b13620151baa8ec430d9c7be'  # Your Twilio Account SID
-auth_token = '22e71bb3c24f7dca56c113eb825d2971'  # 🚨 Please reset your token and use the new one here
+account_sid = st.secrets["TWILIO_SID"]
+auth_token = st.secrets["TWILIO_AUTH_TOKEN"] # 🚨 Please reset your token and use the new one here
 twilio_whatsapp_number = 'whatsapp:+14155238886'
 your_whatsapp_number = 'whatsapp:+94714900557'
 
