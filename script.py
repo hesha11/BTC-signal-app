@@ -181,6 +181,8 @@ if latest_data:
     # ================== Signal Logic ===================
     st.subheader("🖌️ Final Multi-Indicator + SMC Signal")
 
+    global signal_sent
+
     latest = df.iloc[-1]
     volume_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
 
@@ -197,8 +199,6 @@ if latest_data:
     bollinger_sell = latest['Close'] >= latest['UpperBand'] * 0.995
 
     high_volume = latest['Volume'] > volume_avg
-
-    global signal_sent
 
     if is_uptrend and rsi_buy and macd_buy and bollinger_buy and high_volume and detected_bos == "BOS Up" and "Sweep Below Support" in detected_sweep:
         st.success("✅ STRONG BUY SIGNAL: Full Confluence")
