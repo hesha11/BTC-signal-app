@@ -6,4 +6,4 @@ plotly
 ta
 streamlit-autorefresh
 twilio
-
+websockets
