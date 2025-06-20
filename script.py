@@ -21,6 +21,7 @@ client = Client(account_sid, auth_token)
 signal_sent = False
 latest_data = {}
 
+# ================== Send WhatsApp ===================
 def send_whatsapp_message(message_body):
     try:
         message = client.messages.create(
@@ -109,6 +110,47 @@ def detect_liquidity_sweep(df, supports, resistances):
             break
     return sweep_detected or "No Sweep"
 
+# ================== Signal Logic ===================
+def signal_logic(df, supports, resistances, detected_bos, detected_sweep):
+    global signal_sent
+
+    latest = df.iloc[-1]
+    volume_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
+
+    is_uptrend = latest['Close'] > latest['SMA20'] and latest['Close'] > latest['EMA20']
+    is_downtrend = latest['Close'] < latest['SMA20'] and latest['Close'] < latest['EMA20']
+
+    rsi_buy = latest['RSI'] < 30
+    rsi_sell = latest['RSI'] > 70
+
+    macd_buy = latest['MACD'] > 0
+    macd_sell = latest['MACD'] < 0
+
+    bollinger_buy = latest['Close'] <= latest['LowerBand'] * 1.005
+    bollinger_sell = latest['Close'] >= latest['UpperBand'] * 0.995
+
+    high_volume = latest['Volume'] > volume_avg
+
+    if is_uptrend and rsi_buy and macd_buy and bollinger_buy and high_volume and detected_bos == "BOS Up" and "Sweep Below Support" in detected_sweep:
+        st.success("✅ STRONG BUY SIGNAL: Full Confluence")
+        if not signal_sent:
+            send_whatsapp_message("✅ STRONG BUY SIGNAL detected in BTCUSDT 🚀🚀🚀")
+            signal_sent = True
+    elif is_downtrend and rsi_sell and macd_sell and bollinger_sell and high_volume and detected_bos == "BOS Down" and "Sweep Above Resistance" in detected_sweep:
+        st.error("❌ STRONG SELL SIGNAL: Full Confluence")
+        if not signal_sent:
+            send_whatsapp_message("❌ STRONG SELL SIGNAL detected in BTCUSDT 📉📉📉")
+            signal_sent = True
+    else:
+        st.info("⏳ HOLD: No strong confluence yet.")
+
+    st.write(f"**Trend:** {'Uptrend' if is_uptrend else 'Downtrend' if is_downtrend else 'Sideways'}")
+    st.write(f"**RSI:** {latest['RSI']:.2f}")
+    st.write(f"**MACD:** {latest['MACD']:.4f}")
+    st.write(f"**Volume:** {latest['Volume']:.4f} (Avg: {volume_avg:.4f})")
+    st.write(f"**Break of Structure:** {detected_bos}")
+    st.write(f"**Liquidity Sweep:** {detected_sweep}")
+
 # ================== Data Preparation ===================
 if latest_data:
     df = pd.read_csv(f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit=500",
@@ -178,47 +220,9 @@ if latest_data:
     fig_macd.update_layout(yaxis_title="MACD", height=300)
     st.plotly_chart(fig_macd, use_container_width=True)
 
-    # ================== Signal Logic ===================
+    # ================== Run Signal Logic ===================
     st.subheader("🖌️ Final Multi-Indicator + SMC Signal")
-
-    global signal_sent
-
-    latest = df.iloc[-1]
-    volume_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
-
-    is_uptrend = latest['Close'] > latest['SMA20'] and latest['Close'] > latest['EMA20']
-    is_downtrend = latest['Close'] < latest['SMA20'] and latest['Close'] < latest['EMA20']
-
-    rsi_buy = latest['RSI'] < 30
-    rsi_sell = latest['RSI'] > 70
-
-    macd_buy = latest['MACD'] > 0
-    macd_sell = latest['MACD'] < 0
-
-    bollinger_buy = latest['Close'] <= latest['LowerBand'] * 1.005
-    bollinger_sell = latest['Close'] >= latest['UpperBand'] * 0.995
-
-    high_volume = latest['Volume'] > volume_avg
-
-    if is_uptrend and rsi_buy and macd_buy and bollinger_buy and high_volume and detected_bos == "BOS Up" and "Sweep Below Support" in detected_sweep:
-        st.success("✅ STRONG BUY SIGNAL: Full Confluence")
-        if not signal_sent:
-            send_whatsapp_message("✅ STRONG BUY SIGNAL detected in BTCUSDT 🚀🚀🚀")
-            signal_sent = True
-    elif is_downtrend and rsi_sell and macd_sell and bollinger_sell and high_volume and detected_bos == "BOS Down" and "Sweep Above Resistance" in detected_sweep:
-        st.error("❌ STRONG SELL SIGNAL: Full Confluence")
-        if not signal_sent:
-            send_whatsapp_message("❌ STRONG SELL SIGNAL detected in BTCUSDT 📉📉📉")
-            signal_sent = True
-    else:
-        st.info("⏳ HOLD: No strong confluence yet.")
-
-    st.write(f"**Trend:** {'Uptrend' if is_uptrend else 'Downtrend' if is_downtrend else 'Sideways'}")
-    st.write(f"**RSI:** {latest['RSI']:.2f}")
-    st.write(f"**MACD:** {latest['MACD']:.4f}")
-    st.write(f"**Volume:** {latest['Volume']:.4f} (Avg: {volume_avg:.4f})")
-    st.write(f"**Break of Structure:** {detected_bos}")
-    st.write(f"**Liquidity Sweep:** {detected_sweep}")
+    signal_logic(df, supports, resistances, detected_bos, detected_sweep)
 
 else:
     st.warning("Waiting for live WebSocket data...")
